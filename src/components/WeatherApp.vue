@@ -47,6 +47,10 @@ function getDayAndMonth(unixTime: number) {
   return format(date, 'iii, LLL d')
 }
 
+function getIconUrl(iconId: string) {
+  return `https://openweathermap.org/img/wn/${iconId}.png`
+}
+
 onMounted(async () => {
   favoritedCities.value = await getFavoritedCities()
   currentCity.value = favoritedCities.value[0] || null
@@ -58,23 +62,26 @@ onMounted(async () => {
 <template>
   <div class="app__container">
     <div class="app__header">
-      <div class="header__title">Simple Weather</div>
-      <div class="header_search-icon">
-        <i class="material-icons">search</i>
+      <div class="header__container">
+        <div class="header__title">Simple Weather</div>
+        <div class="header_search-icon">
+          <i class="material-icons">search</i>
+        </div>
+      </div>
+
+      <div class="cities__labels">
+        <a
+          v-for="(city, index) in favoritedCities"
+          :key="index"
+          class="cities__label"
+          :class="{ active: city.id === currentCity?.id }"
+          @click.prevent="citySelection(city)"
+        >
+          {{ city.name.toUpperCase() }}
+        </a>
       </div>
     </div>
 
-    <div class="cities__labels">
-      <a
-        v-for="(city, index) in favoritedCities"
-        :key="index"
-        class="cities__label"
-        :class="{ active: city.id === currentCity?.id }"
-        @click.prevent="citySelection(city)"
-      >
-        {{ city.name.toUpperCase() }}
-      </a>
-    </div>
     <div class="app__body">
       <div v-if="showLoadingWeatherError && !weatherData" class="loading-error">
         Something went wrong, try again
@@ -87,7 +94,7 @@ onMounted(async () => {
         <div v-if="!weatherData && !loadingWeatherData" class="no-data">No Data</div>
 
         <template v-if="weatherData && !loadingWeatherData">
-          <div class="city-hourly-weather__list">
+          <div class="city-hourly-weather__list scrollbar">
             <div
               v-for="(hour, index) in weatherData.hourly.slice(0, 8)"
               :key="index"
@@ -95,7 +102,9 @@ onMounted(async () => {
             >
               <div class="hourly-weather__item__temperature">{{ Math.floor(hour.temp) }}º</div>
               <div class="hourly-weather__item__humidity">{{ hour.humidity }}%</div>
-              <div class="hourly-weather__item__icon">{{ hour.weather[0].main }}</div>
+              <div class="hourly-weather__item__icon">
+                <img :src="getIconUrl(hour.weather[0].icon)" />
+              </div>
               <div class="hourly-weather__info__time">
                 {{ getHour(hour.dt) }}
               </div>
@@ -117,7 +126,9 @@ onMounted(async () => {
               :key="index"
               class="city-daily-weather__list__item"
             >
-              <div class="daily-weather__item__icon">{{ day.weather[0].main }}</div>
+              <div class="daily-weather__item__icon">
+                <img :src="getIconUrl(day.weather[0].icon)" />
+              </div>
               <div class="daily-weather__item__info">
                 <div class="daily-weather__info__title">
                   {{ getDayAndMonth(day.dt) }}
@@ -140,54 +151,89 @@ onMounted(async () => {
 </template>
 
 <style lang="scss">
+.header__container {
+  display: flex;
+  justify-content: space-between;
+  padding: 24px 1rem;
+  color: #fff;
+  font-size: 1.2rem;
+  background-color: #1565c0;
+  box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.2);
+
+  .header__title {
+    font-weight: bold;
+    font-size: 24px;
+  }
+}
+
 .cities__labels {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  background-color: #fff;
 }
 
 .cities__label {
   padding: 0.75rem 1rem;
+  font-weight: 500;
+  color: #666;
 
   &.active {
     border-bottom: 2px solid #b85f1c;
+    color: #111;
   }
 
   &:hover {
     cursor: pointer;
-    background-color: rgb(248, 252, 179);
+    color: #1565c0;
   }
 }
 
 .city-hourly-weather__container,
 .city-daily-weather__container {
+  display: flex;
+  flex-direction: column;
   background-color: #fff;
-  padding: 1rem;
   margin-bottom: 1rem;
-  min-height: 100px;
+  min-height: 200px;
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   box-shadow: 3px 3px 4px rgba(0, 0, 0, 0.2);
 }
 
 .loader,
 .no-data,
 .loading-error {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  height: 100%;
+  width: 100%;
+  color: #888;
+  font-weight: 500;
+  font-size: 20px;
 }
 
 .city-hourly-weather__title,
 .city-daily-weather__title {
-  font-size: 1.25rem;
-  padding: 0.5rem;
+  font-weight: 500;
+  font-size: 24px;
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid #eee;
 }
 
 .city-hourly-weather__list {
   display: flex;
   flex-direction: row;
   overflow-x: auto;
+
   padding: 0.25rem;
+}
+
+.weather__item__icon {
+  height: 20px;
+  width: 100%;
+  background-repeat: no-repeat;
 }
 
 .city-hourly-weather__list__item {
@@ -197,14 +243,55 @@ onMounted(async () => {
   padding: 0.5rem;
   min-width: 80px;
 
+  &:last-child {
+    .hourly-weather__item__icon,
+    .hourly-weather__item__humidity {
+      border-right: none;
+    }
+  }
+
   div {
     padding: 0.25rem;
   }
 }
 
+.hourly-weather__item__temperature {
+  font-weight: 700;
+}
+
+.hourly-weather__item__humidity {
+  color: #1d9ccb;
+  text-align: center;
+  width: 100%;
+  border-right: 1px solid #eee;
+}
+
+.hourly-weather__item__icon {
+  height: 35px;
+  width: 100%;
+  border-right: 1px solid #eee;
+}
+
+.hourly-weather__item__icon,
+.daily-weather__item__icon {
+  img {
+    object-position: center;
+    width: 100%;
+    height: 100%;
+    object-fit: none;
+    zoom: 1.1;
+  }
+}
+
+.hourly-weather__info__time {
+  color: #888;
+  font-weight: 500;
+}
+
 .city-daily-weather__list {
   display: flex;
   flex-direction: column;
+  padding: 12px 12px 0;
 }
 
 .city-daily-weather__list__item {
@@ -212,12 +299,55 @@ onMounted(async () => {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem;
+  padding: 12px 10px 10px;
+  border-bottom: 1px solid #eee;
+  gap: 12px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.daily-weather__item__icon {
+  height: 35px;
+  width: 45px;
 }
 
 .daily-weather__item__temperatures {
   display: flex;
   justify-content: space-between;
   font-weight: bold;
+}
+
+.daily-weather__item__info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  .daily-weather__info__title {
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 24px;
+  }
+
+  .daily-weather__info__subtitle {
+    font-size: 14px;
+    font-weight: 500;
+    color: #999;
+    text-align: center;
+
+    &::first-letter {
+      text-transform: capitalize;
+    }
+  }
+}
+
+.daily-weather__item__temperatures {
+  display: flex;
+  width: 80px;
+  justify-content: space-between;
 }
 </style>

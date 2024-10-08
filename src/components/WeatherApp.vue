@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, useTemplateRef } from 'vue'
 import { fromUnixTime } from 'date-fns/fromUnixTime'
 import { format } from 'date-fns/format'
 
 import type { City, WeatherApiData } from '@/types/weather'
 
-import { getFavoritedCities, getWeatherByCity } from '@/services'
+import { getFavoritedCities, getWeatherByCity, getCities } from '@/services/weather'
 
 const favoritedCities = ref<City[]>([])
 const currentCity = ref<City | null>(null)
 const weatherData = ref<WeatherApiData | null>(null)
 const showLoadingWeatherError = ref(false)
+const isSearchedCity = ref(false)
 const loadingWeatherData = ref(false)
 
 async function getWeather() {
@@ -18,7 +19,7 @@ async function getWeather() {
   showLoadingWeatherError.value = false
 
   try {
-    weatherData.value = await getWeatherByCity(currentCity.value?.coord)
+    weatherData.value = await getWeatherByCity(currentCity.value)
   } catch (error) {
     showLoadingWeatherError.value = true
   }
@@ -26,11 +27,7 @@ async function getWeather() {
   loadingWeatherData.value = false
 }
 
-function citySelection(city: City) {
-  currentCity.value = city
-  getWeather()
-}
-
+// Formatting
 function timeFormat(unixTime: number) {
   return fromUnixTime(unixTime)
 }
@@ -51,6 +48,52 @@ function getIconUrl(iconId: string) {
   return `https://openweathermap.org/img/wn/${iconId}.png`
 }
 
+// Search
+const searchInput = useTemplateRef<HTMLInputElement>('searchInput')
+const showSearchInput = ref(false)
+const citySearchValue = ref('')
+const cities = ref<City[]>([])
+
+function citySelection(city: City, searched = false) {
+  isSearchedCity.value = searched
+  cities.value = []
+  currentCity.value = city
+  citySearchValue.value = ''
+  toogleSearchInput(false)
+
+  getWeather()
+}
+
+function toogleSearchInput(value: boolean) {
+  showSearchInput.value = value
+
+  if (showSearchInput.value) {
+    searchInput?.value?.focus()
+  } else {
+    citySearchValue.value = ''
+    cities.value = []
+  }
+}
+
+async function searchCities() {
+  try {
+    cities.value = []
+
+    if (citySearchValue.value.length < 3) return
+
+    cities.value = await getCities(citySearchValue.value)
+  } catch (error) {
+    showLoadingWeatherError.value = true
+  }
+}
+
+function handleSearchInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  citySearchValue.value = input.value
+
+  searchCities()
+}
+
 onMounted(async () => {
   favoritedCities.value = await getFavoritedCities()
   currentCity.value = favoritedCities.value[0] || null
@@ -64,8 +107,29 @@ onMounted(async () => {
     <div class="app__header">
       <div class="header__container">
         <div class="header__title">Simple Weather</div>
-        <div class="header_search-icon">
-          <i class="material-icons">search</i>
+
+        <div class="header__search-container">
+          <div v-if="currentCity && isSearchedCity" class="searched__city">
+            {{ currentCity?.city_name }}
+          </div>
+          <i class="material-icons" @click="toogleSearchInput(!showSearchInput)">search</i>
+          <input
+            :class="{ show: showSearchInput, closed: !showSearchInput }"
+            ref="searchInput"
+            type="text"
+            :value="citySearchValue"
+            @input="handleSearchInput"
+          />
+          <div class="search__container">
+            <div
+              v-for="(city, index) in cities"
+              :key="index"
+              class="search__city"
+              @click="citySelection(city, true)"
+            >
+              {{ city.city_name }}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -74,10 +138,10 @@ onMounted(async () => {
           v-for="(city, index) in favoritedCities"
           :key="index"
           class="cities__label"
-          :class="{ active: city.id === currentCity?.id }"
+          :class="{ active: city.city_id === currentCity?.city_id }"
           @click.prevent="citySelection(city)"
         >
-          {{ city.name.toUpperCase() }}
+          {{ city.city_name.toUpperCase() }}
         </a>
       </div>
     </div>
@@ -349,5 +413,63 @@ onMounted(async () => {
   display: flex;
   width: 80px;
   justify-content: space-between;
+}
+
+.header__search-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+
+  i {
+    cursor: pointer;
+
+    &:hover {
+      color: yellow;
+    }
+  }
+
+  input {
+    display: block;
+    border: 0;
+    border-bottom: 1px solid #d9d9d9;
+    font-size: 16px;
+    background-color: transparent;
+    padding: 0 0 2px;
+    margin: 0;
+    width: 0px;
+    color: #d9d9d9;
+    transition: width 0.5s ease-in-out;
+
+    &.show {
+      width: 250px;
+      transition: width 0.5s ease-in-out;
+      padding: 0 4px 2px;
+    }
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  .search__container {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 3px 3px 4px rgba(0, 0, 0, 0.2);
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    width: 264px;
+
+    .search__city {
+      padding: 8px;
+      color: #666;
+
+      &:hover {
+        color: #1565c0;
+        cursor: pointer;
+      }
+    }
+  }
 }
 </style>

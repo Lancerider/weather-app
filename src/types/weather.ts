@@ -1,14 +1,11 @@
-export type Coordinates = {
-  lon: number
-  lat: number
-}
-
 export type City = {
-  id: number
-  name: string
-  state: string
-  country: string
-  coord: Coordinates
+  city_id: number
+  city_name: string
+  state_code: string
+  country_code: string
+  country_full: string
+  lat: number
+  lon: number
 }
 
 export type WeatherApiWeather = {

@@ -26,6 +26,12 @@ npm install
 npm run dev
 ```
 
+### Run Json Server for Cities API
+
+```sh
+npm run server
+```
+
 ### Type-Check, Compile and Minify for Production
 
 ```sh
